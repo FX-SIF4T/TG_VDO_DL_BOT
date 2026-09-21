@@ -1,7 +1,5 @@
 <div align="center">
-
-<img src="" alt="Auto Downloader Bot" width="760">
-
+  
 # 🎁 Auto Downloader Bot
 
 ### Fast • Clean • Multi-platform • Telegram-ready
@@ -10,7 +8,7 @@
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://telegram.org/)
 [![Powered by Sifat](https://img.shields.io/badge/Powered%20by-Sifat-ff69b4?style=for-the-badge)](https://t.me/BotFather)
 
-</div>
+
 
 ## ✨ Overview
 
@@ -84,25 +82,40 @@ You can also send a supported URL directly or reply to a URL with `/alldl`.
 
 ```text
 .
-├── bot.py
-├── requirements.txt
-└── README.md
+bot.py
+requirements.txt
+README.md
 ```
 
 ## ⚙️ Deployment
 
-The bot is configured for an always-running Replit VM deployment:
+## 🤖 Live Bot
 
-```bash
-python bot.py
+Try the hosted bot on Telegram: [@FX_HOSTING_BOT](https://t.me/FX_HOSTING_BOT)
+______
+
+This bot also runs on [Render](https://render.com/) as a **Background Worker**.
+Create a new worker from this repository with:
+
+```text
+Build Command: pip install -r requirements.txt
+Start Command: python bot.py
 ```
 
-Add `TELEGRAM_BOT_TOKEN` to the production Secret environment before publishing.
+Add this environment variable in Render:
+
+```text
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+```
+
+No public port is required because the bot uses Telegram polling.
 
 ## 🔐 Responsible Use
 
 Only download content you own or have permission to access. Respect each
 platform's terms of service, copyright rules, and privacy requirements.
+
+</div>
 
 <div align="center">
 
