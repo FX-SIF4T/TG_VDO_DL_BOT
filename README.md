@@ -41,6 +41,8 @@ Terabox · X/Twitter · Google Drive · SoundCloud · Pinterest · and more
 ### 1. Create a Telegram bot
 
 <img src="https://i.imgur.com/M4lJL4c.jpeg" alt="guide" width="560">
+------
+<img src="https://i.imgur.com/r4sJGIU.jpeg" alt="guide" width="560">
 
 
 Open [@BotFather](https://t.me/BotFather), create a bot with `/newbot`, and copy
