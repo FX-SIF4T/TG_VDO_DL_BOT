@@ -15,13 +15,14 @@
 Auto Downloader Bot converts supported social-media links into downloadable video,
 audio, or document files directly inside Telegram.
 
-It uses the project's remote downloader API, streams files safely, keeps temporary
-files private, and automatically removes them after delivery.
+It uses the VDL Linklet API for video downloads and search, streams files safely,
+keeps temporary files private, and automatically removes them after delivery.
 
 ## 🚀 Features
 
 - Direct link downloads
 - `/alldl <link>` command support
+- `/search <query>` video search with clickable results
 - Reply-to-link download support
 - Automatic video, audio, and document delivery
 - High-quality media selection
@@ -76,6 +77,7 @@ python bot.py
 /start              Show the welcome card
 /help               Show usage instructions
 /alldl <link>       Download media from a supported link
+/search <query>     Search videos and show clickable results
 ```
 
 You can also send a supported URL directly or reply to a URL with `/alldl`.

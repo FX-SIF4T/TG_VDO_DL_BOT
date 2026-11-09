@@ -12,7 +12,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
-from telegram import InputFile, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile, Update
 from telegram.constants import ChatAction
 from telegram.ext import (
     Application,
@@ -67,6 +67,7 @@ def help_text() -> str:
         "╭── [ 🎀 ᴅ ᴏ ᴡ ɴ ʟ ᴏ ᴀ ᴅ ᴇ ʀ  ɢ ᴜ ɪ ᴅ ᴇ 🎀 ]\n"
         "│\n"
         "├── 📥 ⇛ /alldl <ʟɪɴᴋ>\n"
+        "├── 🔎 ⇛ /search <ǫᴜᴇʀʏ>\n"
         "├── 🔗 ⇛ ꜱᴇɴᴅ ᴀ ꜱᴜᴘᴘᴏʀᴛᴇᴅ ʟɪɴᴋ ᴅɪʀᴇᴄᴛʟʏ\n"
         "├── 💬 ⇛ ʀᴇᴘʟʏ ᴛᴏ ᴀ ʟɪɴᴋ ᴡɪᴛʜ /alldl\n"
         "│\n"
@@ -78,10 +79,9 @@ def help_text() -> str:
     )
 
 
-RAW_API_CONFIG_URL = (
-    "https://raw.githubusercontent.com/FX-SIF4T/API-STORE/"
-    "refs/heads/main/FXS_APIS/apis.json"
-)
+API_BASE_URL = "https://vdl-linklet.vercel.app/api"
+DOWNLOADER_API_URL = f"{API_BASE_URL}/alldownloader"
+SEARCH_API_URL = f"{API_BASE_URL}/search"
 
 SUPPORTED_DOMAINS = {
     "facebook.com",
@@ -168,12 +168,15 @@ def choose_extension(media_url: str, content_type: str | None = None) -> str:
 
 def first_media_url(payload: Any) -> str | None:
     if isinstance(payload, dict):
-        for key in ("high_quality", "low_quality", "url", "downloadUrl", "download_url"):
+        for key in (
+            "high_quality", "highQuality", "low_quality", "lowQuality",
+            "download_url", "downloadUrl", "video_url", "videoUrl", "url", "link",
+        ):
             value = payload.get(key)
             if isinstance(value, str) and value.startswith(("http://", "https://")):
                 return value
 
-        for key in ("data", "result", "media"):
+        for key in ("data", "result", "media", "videos", "results"):
             nested = first_media_url(payload.get(key))
             if nested:
                 return nested
@@ -203,43 +206,63 @@ async def response_json(response: aiohttp.ClientResponse) -> Any:
     try:
         return json.loads(raw_text)
     except json.JSONDecodeError as exc:
-        raise DownloaderError(styled("The downloader API returned invalid data.")) from exc
-
-
-async def get_downloader_base(session: aiohttp.ClientSession) -> str:
-    try:
-        async with session.get(RAW_API_CONFIG_URL) as response:
-            response.raise_for_status()
-            config = await response_json(response)
-    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-        raise DownloaderError(styled("The downloader API is currently unavailable.")) from exc
-
-    if not isinstance(config, dict):
-        raise DownloaderError(styled("The downloader configuration is invalid."))
-
-    base_url = config.get("downloadere") or config.get("downloader")
-    if not isinstance(base_url, str) or not base_url.startswith(("http://", "https://")):
-        raise DownloaderError(styled("The downloader endpoint was not found."))
-
-    return base_url.rstrip("/")
+        raise DownloaderError(styled("The API returned invalid data.")) from exc
 
 
 async def resolve_media(session: aiohttp.ClientSession, source_url: str) -> tuple[str, Any]:
-    downloader_base = await get_downloader_base(session)
-    endpoint = f"{downloader_base}/alldl"
-
     try:
-        async with session.get(endpoint, params={"url": source_url}) as response:
+        async with session.get(DOWNLOADER_API_URL, params={"q": source_url}) as response:
             response.raise_for_status()
             payload = await response_json(response)
     except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-        raise DownloaderError(styled("The media request failed. Please try again.")) from exc
+        raise DownloaderError(styled("The downloader API is currently unavailable.")) from exc
 
     media_url = first_media_url(payload)
     if not media_url:
         raise DownloaderError(styled("No downloadable media was found for this link."))
 
     return media_url, payload
+
+
+def search_items(payload: Any) -> list[dict[str, Any]]:
+    """Extract common result-list shapes returned by search APIs."""
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if not isinstance(payload, dict):
+        return []
+
+    for key in ("results", "items", "videos", "data", "result"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            items = [item for item in value if isinstance(item, dict)]
+            if items:
+                return items
+        nested = search_items(value)
+        if nested:
+            return nested
+    return []
+
+
+def search_result_link(item: dict[str, Any]) -> str | None:
+    for key in (
+        "url", "video_url", "videoUrl", "web_url", "webpage_url", "link",
+        "permalink", "source_url", "original_url",
+    ):
+        value = item.get(key)
+        if isinstance(value, str) and value.startswith(("http://", "https://")):
+            return value
+    return None
+
+
+async def search_videos(session: aiohttp.ClientSession, query: str) -> list[dict[str, Any]]:
+    try:
+        async with session.get(SEARCH_API_URL, params={"q": query}) as response:
+            response.raise_for_status()
+            payload = await response_json(response)
+    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+        raise DownloaderError(styled("The search API is currently unavailable.")) from exc
+
+    return search_items(payload)
 
 
 async def download_to_file(
@@ -279,7 +302,7 @@ async def download_to_file(
     except DownloaderError:
         raise
     except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-        raise DownloaderError(styled("The media file could not be downloaded."))
+        raise DownloaderError(styled("The media file could not be downloaded.")) from exc
 
 
 def message_url(update: Update) -> str | None:
@@ -301,6 +324,52 @@ def message_url(update: Update) -> str | None:
 async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_message:
         await update.effective_message.reply_text(help_text())
+
+
+async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    query = " ".join(context.args).strip()
+    if not query:
+        await message.reply_text(styled("🔎 Usage: /search <video name or keywords>"))
+        return
+    if len(query) > 200:
+        await message.reply_text(styled("❌ Search query is too long (maximum 200 characters)."))
+        return
+
+    status_message = await message.reply_text(styled("🔎 Searching videos..."))
+    session: aiohttp.ClientSession = context.application.bot_data["http_session"]
+    try:
+        results = await search_videos(session, query)
+        buttons: list[list[InlineKeyboardButton]] = []
+        for item in results:
+            link = search_result_link(item)
+            if not link:
+                continue
+            title = next(
+                (str(item[key]).strip() for key in ("title", "name")
+                 if isinstance(item.get(key), str) and item[key].strip()),
+                "Open video",
+            )
+            buttons.append([InlineKeyboardButton(text=title[:64], url=link)])
+            if len(buttons) == 5:
+                break
+
+        if not buttons:
+            await status_message.edit_text(styled("No video results were found. Try another search."))
+            return
+
+        await status_message.edit_text(
+            styled(f"🔎 Results for: {query}\nTap a result to open it, then send its link here to download."),
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    except DownloaderError as exc:
+        await status_message.edit_text(f"❌ {exc}")
+    except Exception:
+        logger.exception("Unexpected search error")
+        await status_message.edit_text(styled("❌ Search failed. Please try again later."))
 
 
 async def show_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -424,6 +493,7 @@ def build_application(token: str) -> Application:
     )
     application.add_handler(CommandHandler("start", show_welcome))
     application.add_handler(CommandHandler("help", show_help))
+    application.add_handler(CommandHandler("search", search_handler))
     application.add_handler(CommandHandler("alldl", download_handler))
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, download_handler)
