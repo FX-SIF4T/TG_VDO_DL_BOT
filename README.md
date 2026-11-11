@@ -8,8 +8,6 @@
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://telegram.org/)
 [![Powered by Sifat](https://img.shields.io/badge/Powered%20by-Sifat-ff69b4?style=for-the-badge)](https://t.me/BotFather)
 
-
-
 ## ✨ Overview
 
 Auto Downloader Bot converts supported social-media links into downloadable video,
@@ -22,15 +20,13 @@ keeps temporary files private, and automatically removes them after delivery.
 
 - Direct link downloads
 - `/alldl <link>` command support
-- `/search <query>` video search with clickable results
+- `/search <query>` video search with up to five numbered results
+- Send or reply with a result number to download that video
 - Reply-to-link download support
 - Automatic video, audio, and document delivery
-- High-quality media selection
 - File-size protection for Telegram uploads
 - Temporary-file cleanup after every download
 - Concurrent download control
-- Styled English responses and captions
-- Personalized `/start` welcome message
 
 ## 🌐 Supported Platforms
 
@@ -45,29 +41,17 @@ Terabox · X/Twitter · Google Drive · SoundCloud · Pinterest · and more
 ------
 <img src="https://i.imgur.com/r4sJGIU.jpeg" alt="guide" width="560">
 
-
 Open [@BotFather](https://t.me/BotFather), create a bot with `/newbot`, and copy
 the generated token.
 
 ### 2. Add the token securely
 
-add this Secret:
+Set the `TELEGRAM_BOT_TOKEN` secret. Do not commit the token to the repository.
 
-```text
-TELEGRAM_BOT_TOKEN
-```
-
-Do not commit the token to `bot.py`, `README.md`, or any public repository.
-
-### 3. Install dependencies
+### 3. Install dependencies and run
 
 ```bash
 pip install -r requirements.txt
-```
-
-### 4. Run locally
-
-```bash
 python bot.py
 ```
 
@@ -77,10 +61,12 @@ python bot.py
 /start              Show the welcome card
 /help               Show usage instructions
 /alldl <link>       Download media from a supported link
-/search <query>     Search videos and show clickable results
+/search <query>     Search videos and show up to five numbered results
 ```
 
-You can also send a supported URL directly or reply to a URL with `/alldl`.
+After searching, send a result number (1–5) in the same chat—or reply to the
+search results message with that number—to download the selected video. You can
+also send a supported URL directly or reply to a URL with `/alldl`.
 
 ## 🏗️ Project Structure
 
@@ -93,26 +79,15 @@ README.md
 
 ## ⚙️ Deployment
 
-## 🤖 Live Bot
-
-Try the hosted bot on Telegram: [@FX_HOSTING_BOT](https://t.me/FX_HOSTING_BOT)
-______
-
-This bot also runs on [Render](https://render.com/) as a **Background Worker**.
-Create a new worker from this repository with:
+This bot runs on [Render](https://render.com/) as a **Background Worker**.
 
 ```text
 Build Command: pip install -r requirements.txt
 Start Command: python bot.py
 ```
 
-Add this environment variable in Render:
-
-```text
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-```
-
-No public port is required because the bot uses Telegram polling.
+Set `TELEGRAM_BOT_TOKEN` in the deployment environment. No public port is
+required because the bot uses Telegram polling.
 
 ## 🔐 Responsible Use
 

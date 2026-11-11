@@ -12,7 +12,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile, Update
+from telegram import InputFile, Update
 from telegram.constants import ChatAction
 from telegram.ext import (
     Application,
@@ -54,7 +54,7 @@ def welcome_text(name: str, members: object) -> str:
         "╭── [ 🎁 ᴡ є ʟ ᴄ σ ϻ є  ʙ ᴧ ʙ ʏ 🎁 ]\n"
         "│\n"
         f"├── 🍼 ⇛ η ᴧ ϻ є : {styled(name)}\n"
-        f"├── 🩷 ⇛ ϻ є ϻ ʙ є ʀ s : {styled(members)}\n"
+        f"├── 🩷 ⇛ ϻ є �� ʙ є ʀ s : {styled(members)}\n"
         "│\n"
         "├── 🎁 ⇛ єηᴊσʏ ᴛʜє ϻυsɪᴄ ᴧηᴅ ᴠɪᴅ !\n"
         "│\n"
@@ -68,8 +68,8 @@ def help_text() -> str:
         "│\n"
         "├── 📥 ⇛ /alldl <ʟɪɴᴋ>\n"
         "├── 🔎 ⇛ /search <ǫᴜᴇʀʏ>\n"
+        "├── 🔢 ⇛ ʀᴇᴘʟʏ ᴏʀ ꜱᴇɴᴅ ᴀ ʀᴇꜱᴜʟᴛ ɴᴜᴍʙᴇʀ (1–5)\n"
         "├── 🔗 ⇛ ꜱᴇɴᴅ ᴀ ꜱᴜᴘᴘᴏʀᴛᴇᴅ ʟɪɴᴋ ᴅɪʀᴇᴄᴛʟʏ\n"
-        "├── 💬 ⇛ ʀᴇᴘʟʏ ᴛᴏ ᴀ ʟɪɴᴋ ᴡɪᴛʜ /alldl\n"
         "│\n"
         "├── 🌐 ⇛ ꜰᴀᴄᴇʙᴏᴏᴋ • ʏᴏᴜᴛᴜʙᴇ • ᴛɪᴋᴛᴏᴋ\n"
         "├── 🌐 ⇛ ɪɴꜱᴛᴀɢʀᴀᴍ • ʟɪᴋᴇᴇ • ᴄᴀᴘᴄᴜᴛ\n"
@@ -82,34 +82,19 @@ def help_text() -> str:
 API_BASE_URL = "https://vdl-linklet.vercel.app/api"
 DOWNLOADER_API_URL = f"{API_BASE_URL}/alldownloader"
 SEARCH_API_URL = f"{API_BASE_URL}/search"
+MAX_SEARCH_RESULTS = 5
 
 SUPPORTED_DOMAINS = {
-    "facebook.com",
-    "fb.watch",
-    "youtube.com",
-    "youtu.be",
-    "tiktok.com",
-    "instagram.com",
-    "instagr.am",
-    "likee.com",
-    "likee.video",
-    "capcut.com",
-    "spotify.com",
-    "terabox.com",
-    "twitter.com",
-    "x.com",
-    "drive.google.com",
-    "soundcloud.com",
-    "ndown.app",
-    "pinterest.com",
-    "pin.it",
+    "facebook.com", "fb.watch", "youtube.com", "youtu.be", "tiktok.com",
+    "instagram.com", "instagr.am", "likee.com", "likee.video", "capcut.com",
+    "spotify.com", "terabox.com", "twitter.com", "x.com", "drive.google.com",
+    "soundcloud.com", "ndown.app", "pinterest.com", "pin.it",
 }
 
 MAX_DOWNLOAD_BYTES = 49 * 1024 * 1024
 MAX_CONCURRENT_DOWNLOADS = 3
 URL_PATTERN = re.compile(r"https?://[^\s<>()]+", re.IGNORECASE)
 TRAILING_URL_CHARS = ".,!?;:'\""
-
 DOWNLOAD_SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)
 
 
@@ -120,12 +105,8 @@ class DownloaderError(Exception):
 def extract_url(text: str | None) -> str | None:
     if not text:
         return None
-
     match = URL_PATTERN.search(text)
-    if not match:
-        return None
-
-    return match.group(0).rstrip(TRAILING_URL_CHARS)
+    return match.group(0).rstrip(TRAILING_URL_CHARS) if match else None
 
 
 def is_supported_url(url: str) -> bool:
@@ -133,14 +114,12 @@ def is_supported_url(url: str) -> bool:
         hostname = (urlparse(url).hostname or "").lower().removeprefix("www.")
     except ValueError:
         return False
-
     return any(hostname == domain or hostname.endswith(f".{domain}")
                for domain in SUPPORTED_DOMAINS)
 
 
 def platform_name(url: str) -> str:
-    hostname = (urlparse(url).hostname or "media").lower()
-    hostname = hostname.removeprefix("www.")
+    hostname = (urlparse(url).hostname or "media").lower().removeprefix("www.")
     return hostname.split(".")[0].upper()
 
 
@@ -152,18 +131,13 @@ def safe_filename(value: str, fallback: str) -> str:
 def choose_extension(media_url: str, content_type: str | None = None) -> str:
     path_suffix = Path(urlparse(media_url).path).suffix.lower()
     allowed = {
-        ".mp3", ".m4a", ".aac", ".ogg", ".wav",
-        ".mp4", ".mkv", ".webm", ".mov", ".avi",
-        ".jpg", ".jpeg", ".png", ".gif", ".webp",
+        ".mp3", ".m4a", ".aac", ".ogg", ".wav", ".mp4", ".mkv", ".webm",
+        ".mov", ".avi", ".jpg", ".jpeg", ".png", ".gif", ".webp",
     }
     if path_suffix in allowed:
         return path_suffix
-
     guessed = mimetypes.guess_extension((content_type or "").split(";")[0])
-    if guessed in allowed:
-        return guessed
-
-    return ".mp4"
+    return guessed if guessed in allowed else ".mp4"
 
 
 def first_media_url(payload: Any) -> str | None:
@@ -175,36 +149,30 @@ def first_media_url(payload: Any) -> str | None:
             value = payload.get(key)
             if isinstance(value, str) and value.startswith(("http://", "https://")):
                 return value
-
         for key in ("data", "result", "media", "videos", "results"):
             nested = first_media_url(payload.get(key))
             if nested:
                 return nested
-
-    if isinstance(payload, list):
+    elif isinstance(payload, list):
         for item in payload:
             nested = first_media_url(item)
             if nested:
                 return nested
-
     return None
 
 
 def payload_title(payload: Any) -> str | None:
-    if not isinstance(payload, dict):
-        return None
-
-    for key in ("title", "filename", "file_name", "name"):
-        value = payload.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+    if isinstance(payload, dict):
+        for key in ("title", "filename", "file_name", "name"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
     return None
 
 
 async def response_json(response: aiohttp.ClientResponse) -> Any:
-    raw_text = await response.text()
     try:
-        return json.loads(raw_text)
+        return json.loads(await response.text())
     except json.JSONDecodeError as exc:
         raise DownloaderError(styled("The API returned invalid data.")) from exc
 
@@ -216,21 +184,17 @@ async def resolve_media(session: aiohttp.ClientSession, source_url: str) -> tupl
             payload = await response_json(response)
     except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
         raise DownloaderError(styled("The downloader API is currently unavailable.")) from exc
-
     media_url = first_media_url(payload)
     if not media_url:
         raise DownloaderError(styled("No downloadable media was found for this link."))
-
     return media_url, payload
 
 
 def search_items(payload: Any) -> list[dict[str, Any]]:
-    """Extract common result-list shapes returned by search APIs."""
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
     if not isinstance(payload, dict):
         return []
-
     for key in ("results", "items", "videos", "data", "result"):
         value = payload.get(key)
         if isinstance(value, list):
@@ -261,7 +225,6 @@ async def search_videos(session: aiohttp.ClientSession, query: str) -> list[dict
             payload = await response_json(response)
     except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
         raise DownloaderError(styled("The search API is currently unavailable.")) from exc
-
     return search_items(payload)
 
 
@@ -273,19 +236,15 @@ async def download_to_file(
         async with session.get(media_url) as response:
             response.raise_for_status()
             content_type = response.headers.get("Content-Type", "")
-
             announced_size = response.content_length
             if announced_size and announced_size > MAX_DOWNLOAD_BYTES:
                 raise DownloaderError(styled("This file is larger than Telegram's upload limit."))
 
             extension = choose_extension(media_url, content_type)
             temporary_file = tempfile.NamedTemporaryFile(
-                prefix="telegram_media_",
-                suffix=extension,
-                delete=False,
+                prefix="telegram_media_", suffix=extension, delete=False
             )
             temporary_path = temporary_file.name
-
             downloaded = 0
             try:
                 with temporary_file:
@@ -297,7 +256,6 @@ async def download_to_file(
             except Exception:
                 Path(temporary_path).unlink(missing_ok=True)
                 raise
-
             return temporary_path, extension
     except DownloaderError:
         raise
@@ -309,16 +267,11 @@ def message_url(update: Update) -> str | None:
     message = update.effective_message
     if not message:
         return None
-
     url = extract_url(message.text or message.caption)
     if url:
         return url
-
     replied = message.reply_to_message
-    if replied:
-        return extract_url(replied.text or replied.caption)
-
-    return None
+    return extract_url(replied.text or replied.caption) if replied else None
 
 
 async def show_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -330,7 +283,6 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     message = update.effective_message
     if not message:
         return
-
     query = " ".join(context.args).strip()
     if not query:
         await message.reply_text(styled("🔎 Usage: /search <video name or keywords>"))
@@ -342,28 +294,39 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     status_message = await message.reply_text(styled("🔎 Searching videos..."))
     session: aiohttp.ClientSession = context.application.bot_data["http_session"]
     try:
-        results = await search_videos(session, query)
-        buttons: list[list[InlineKeyboardButton]] = []
-        for item in results:
+        api_results = await search_videos(session, query)
+        results: list[dict[str, str]] = []
+        for item in api_results:
             link = search_result_link(item)
             if not link:
                 continue
             title = next(
                 (str(item[key]).strip() for key in ("title", "name")
                  if isinstance(item.get(key), str) and item[key].strip()),
-                "Open video",
+                "Untitled video",
             )
-            buttons.append([InlineKeyboardButton(text=title[:64], url=link)])
-            if len(buttons) == 5:
+            results.append({"title": title, "url": link})
+            if len(results) >= MAX_SEARCH_RESULTS:
                 break
 
-        if not buttons:
+        if not results:
+            context.user_data.pop("last_search", None)
             await status_message.edit_text(styled("No video results were found. Try another search."))
             return
 
+        context.user_data["last_search"] = {
+            "chat_id": message.chat_id,
+            "results": results,
+        }
+        listing = "\n".join(
+            f"{index}. {result['title'][:100]}"
+            for index, result in enumerate(results, start=1)
+        )
         await status_message.edit_text(
-            styled(f"🔎 Results for: {query}\nTap a result to open it, then send its link here to download."),
-            reply_markup=InlineKeyboardMarkup(buttons),
+            f"🔎 Results for: {query}\n\n{listing}\n\n"
+            "Send a result number (1–{count}) to download that video. "
+            "You can reply to this message with the number or send it normally."
+            .format(count=len(results))
         )
     except DownloaderError as exc:
         await status_message.edit_text(f"❌ {exc}")
@@ -372,58 +335,74 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await status_message.edit_text(styled("❌ Search failed. Please try again later."))
 
 
+async def select_search_result(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message or not message.text:
+        return
+
+    selection = context.user_data.get("last_search")
+    if not selection or selection.get("chat_id") != message.chat_id:
+        await message.reply_text(styled("No recent search found. Use /search <query> first."))
+        return
+
+    results = selection.get("results", [])
+    index = int(message.text.strip()) - 1
+    if index < 0 or index >= len(results):
+        await message.reply_text(styled(f"Choose a number from 1 to {len(results)}."))
+        return
+
+    selected = results[index]
+    url = selected.get("url", "")
+    if not is_supported_url(url):
+        await message.reply_text(styled("❌ This search result platform is not supported."))
+        return
+
+    await download_handler(update, context, source_url=url)
+
+
 async def show_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
     if not message:
         return
-
     user = update.effective_user
     name = user.first_name if user and user.first_name else "Guest"
     try:
         members = await context.bot.get_chat_member_count(message.chat_id)
     except Exception:
         members = "—"
-
     await message.reply_text(welcome_text(name, members))
 
 
-async def download_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def download_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    source_url: str | None = None,
+) -> None:
     message = update.effective_message
     if not message:
         return
 
-    url = message_url(update)
+    url = source_url or message_url(update)
     if not url and context.args:
         url = extract_url(" ".join(context.args))
-
     if not url:
         if message.text and message.text.startswith("/"):
             await message.reply_text(styled("📥 Please send a complete https:// media link."))
         return
-
     if not is_supported_url(url):
         await message.reply_text(styled("❌ This platform is not supported."))
         return
 
     session: aiohttp.ClientSession = context.application.bot_data["http_session"]
-    status_message = await message.reply_text(
-        styled("⏳ Checking your link and preparing the media...")
-    )
+    status_message = await message.reply_text(styled("⏳ Checking your link and preparing the media..."))
     temporary_path: str | None = None
 
     async with DOWNLOAD_SEMAPHORE:
         try:
-            await context.bot.send_chat_action(
-                chat_id=message.chat_id,
-                action=ChatAction.UPLOAD_VIDEO,
-            )
+            await context.bot.send_chat_action(chat_id=message.chat_id, action=ChatAction.UPLOAD_VIDEO)
             media_url, payload = await resolve_media(session, url)
             temporary_path, extension = await download_to_file(session, media_url)
-
-            title = safe_filename(
-                payload_title(payload) or f"{platform_name(url)}_media",
-                "downloaded_media",
-            )
+            title = safe_filename(payload_title(payload) or f"{platform_name(url)}_media", "downloaded_media")
             filename = f"{title}{extension}"
             caption = (
                 "╭── [ 🎁 ᴅ ᴏ ᴡ ɴ ʟ ᴏ ᴀ ᴅ  ᴄ ᴏ ᴍ ᴘ ʟ ᴇ ᴛ ᴇ 🎁 ]\n"
@@ -435,16 +414,10 @@ async def download_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 "│\n"
                 "╰── ᴘ σ ᴡ є ʀ є ᴅ  ʙ ʏ  ꜱ ɪ ꜰ ᴀ ᴛ"
             )
-
-            await status_message.edit_text(
-                styled("📤 Media found. Uploading it to Telegram...")
-            )
+            await status_message.edit_text(styled("📤 Media found. Uploading it to Telegram..."))
             if extension in {".mp3", ".m4a", ".aac", ".ogg", ".wav"}:
                 with open(temporary_path, "rb") as media_file:
-                    await message.reply_audio(
-                        audio=InputFile(media_file, filename=filename),
-                        caption=caption,
-                    )
+                    await message.reply_audio(audio=InputFile(media_file, filename=filename), caption=caption)
             elif extension in {".mp4", ".webm", ".mov"}:
                 with open(temporary_path, "rb") as media_file:
                     await message.reply_video(
@@ -454,19 +427,13 @@ async def download_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     )
             else:
                 with open(temporary_path, "rb") as media_file:
-                    await message.reply_document(
-                        document=InputFile(media_file, filename=filename),
-                        caption=caption,
-                    )
-
+                    await message.reply_document(document=InputFile(media_file, filename=filename), caption=caption)
             await status_message.delete()
         except DownloaderError as exc:
             await status_message.edit_text(f"❌ {exc}")
         except Exception:
             logger.exception("Unexpected download error")
-            await status_message.edit_text(
-                styled("❌ Something went wrong. Please try again later.")
-            )
+            await status_message.edit_text(styled("❌ Something went wrong. Please try again later."))
         finally:
             if temporary_path:
                 Path(temporary_path).unlink(missing_ok=True)
@@ -496,6 +463,9 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler("search", search_handler))
     application.add_handler(CommandHandler("alldl", download_handler))
     application.add_handler(
+        MessageHandler(filters.Regex(r"^[1-5]$") & filters.TEXT, select_search_result)
+    )
+    application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, download_handler)
     )
     return application
@@ -508,7 +478,6 @@ def main() -> None:
             "Add your Telegram bot token to BOT_TOKEN or set "
             "the TELEGRAM_BOT_TOKEN environment variable."
         )
-
     application = build_application(token)
     logger.info("Telegram downloader bot is starting")
     application.run_polling()
