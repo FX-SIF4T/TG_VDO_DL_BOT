@@ -58,7 +58,7 @@ def welcome_text(name: str, members: object) -> str:
         "│\n"
         "├── 🎁 ⇛ єηᴊσʏ ᴛʜє ϻυsɪᴄ ᴧηᴅ ᴠɪᴅ !\n"
         "│\n"
-        "╰── ᴘ σ ᴡ є ʀ є ᴅ  ʙ ʏ  ꜱɪꜰᴀᴛ"
+        "╰── ᴘ σ ᴡ є ʀ є ᴅ  ʙ ʏ  ꜱ ɪ ꜰ ᴀ ᴛ"
     )
 
 
@@ -79,7 +79,7 @@ def help_text() -> str:
     )
 
 
-API_BASE_URL = "https://vdl-linklet.vercel.app/api"
+API_BASE_URL = "https://mediadlapi.vercel.app/api"
 DOWNLOADER_API_URL = f"{API_BASE_URL}/alldownloader"
 SEARCH_API_URL = f"{API_BASE_URL}/search"
 MAX_SEARCH_RESULTS = 5
